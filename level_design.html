@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Level Design — 4 Layers</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0">
+<style>
+  :root {
+    --bg-page: #0f1117;
+    --bg-panel: #16181f;
+    --border: #2a2d38;
+    --text-main: #f3f4f6;
+    --text-muted: #9ca3af;
+    --btn-bg: #1c1f28;
+    --btn-hover: #252836;
+    --node-bg: #1c1f28;
+    --primary: #6366f1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body { width: 100vw; height: 100vh; overflow: hidden; font-family: -apple-system, system-ui, sans-serif; color: var(--text-main); background: var(--bg-page); display: flex; }
+
+  /* SIDEBAR */
+  #sidebar { width: 300px; height: 100%; border-right: 1px solid var(--border); background: var(--bg-panel); display: flex; flex-direction: column; z-index: 100; box-shadow: 2px 0 10px rgba(0,0,0,0.3); flex-shrink: 0; }
+  .sb-header { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .sb-header h2 { font-size: 13px; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px; }
+  .sb-actions { display: flex; gap: 6px; }
+  .sb-actions button { flex: 1; background: var(--btn-bg); border: 1px solid var(--border); color: var(--text-main); padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: 600; white-space: nowrap; }
+  .sb-actions button:hover { background: var(--btn-hover); }
+  .sb-content { flex: 1; overflow-y: auto; padding: 8px 8px 40px; scrollbar-width: thin; }
+
+  /* Category accordion */
+  .category { margin-bottom: 4px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  .cat-header { display: flex; align-items: center; gap: 6px; padding: 8px 10px; cursor: pointer; user-select: none; background: #1a1d26; }
+  .cat-arrow { font-size: 10px; color: var(--text-muted); transition: transform 0.2s; flex-shrink: 0; }
+  .cat-arrow.open { transform: rotate(90deg); }
+  .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .cat-name { flex: 1; font-size: 12px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cat-name-edit { flex: 1; font-size: 12px; font-weight: 600; background: transparent; border: none; border-bottom: 1px solid var(--primary); color: var(--text-main); outline: none; min-width: 0; }
+  .cat-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 0 2px; flex-shrink: 0; }
+  .cat-del:hover { color: #ef4444; }
+  .cat-body { padding: 6px; display: none; }
+  .cat-body.open { display: block; }
+
+  /* Cards in sidebar */
+  .card-template { background: var(--node-bg); border-left: 4px solid var(--primary); padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.2); position: relative; }
+  .card-template:hover { background: #222530; }
+  .card-template:active { cursor: grabbing; }
+  .card-title { font-size: 12px; font-weight: 600; margin-bottom: 3px; pointer-events: none; }
+  .card-desc { font-size: 10px; color: var(--text-muted); line-height: 1.3; pointer-events: none; }
+  .card-del-btn { position: absolute; top: 6px; right: 6px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; opacity: 0; transition: opacity 0.15s; pointer-events: all; }
+  .card-template:hover .card-del-btn { opacity: 1; }
+  .card-del-btn:hover { color: #ef4444; }
+  .btn-add-card { width: 100%; background: none; border: 1px dashed var(--border); color: var(--text-muted); padding: 5px; border-radius: 5px; font-size: 10px; cursor: pointer; margin-top: 4px; }
+  .btn-add-card:hover { background: #222530; color: var(--text-main); }
+
+  /* WORKSPACE */
+  #workspace { flex: 1; position: relative; display: flex; flex-direction: column; min-width: 0; }
+  #toolbar { height: 48px; border-bottom: 1px solid var(--border); background: var(--bg-panel); display: flex; align-items: center; padding: 0 16px; gap: 8px; z-index: 100; flex-shrink: 0; }
+  button.tb { background: var(--btn-bg); border: 1px solid var(--border); color: var(--text-main); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  button.tb:hover { background: var(--btn-hover); }
+  button.tb[disabled] { opacity: 0.4; cursor: not-allowed; }
+  button.tb.accent { background: var(--primary); border-color: var(--primary); }
+  button.tb.accent:hover { background: #4f52d1; }
+
+  #viewport { flex: 1; position: relative; overflow: hidden; cursor: grab; background-image: url("data:image/svg+xml,%3Csvg width='28' height='28' viewBox='0 0 28 28' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%232a2d38'/%3E%3C/svg%3E"); }
+  #viewport.grabbing { cursor: grabbing; }
+  #canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; width: 1px; height: 1px; }
+  #edges-layer { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+
+  /* NODES */
+  .node { position: absolute; width: 300px; background: transparent; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); transition: box-shadow .2s; border: 2px solid transparent; }
+  .node.selected { box-shadow: 0 0 0 4px rgba(255,255,255,0.1), 0 12px 32px rgba(0,0,0,0.5); z-index: 50; }
+  .node.drop-target { border-color: #10b981; box-shadow: 0 0 0 4px rgba(16,185,129,0.3); }
+  .n-block { background: var(--node-bg); border: 2px solid var(--border); border-left-width: 4px; border-radius: 12px; }
+  .n-link { position: relative; height: 8px; margin: 0; }
+  .n-link::before {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 28px; height: 10px;
+    background: #2a2d38;
+    border: 1.5px solid #3f4354;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+  .n-link::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 4px; height: 4px;
+    background: #6b7280;
+    border-radius: 50%;
+  }
+  .n-header { padding: 10px 12px; display: flex; align-items: flex-start; gap: 8px; border-bottom: 1px solid var(--border); cursor: default; }
+  .color-dot { width: 13px; height: 13px; border-radius: 50%; cursor: pointer; flex-shrink: 0; margin-top: 2px; border: 1px solid rgba(255,255,255,0.2); }
+  .n-icon { font-family: 'Material Symbols Outlined'; font-size: 18px; line-height: 1; flex-shrink: 0; margin-top: 0; user-select: none; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .n-title { flex: 1; font-size: 13px; font-weight: bold; outline: none; line-height: 1.3; cursor: text; user-select: text; }
+  .n-unlink { background: none; border: none; color: #60a5fa; cursor: pointer; font-size: 16px; margin-top: -3px; padding: 0 3px; }
+  .n-unlink:hover { color: #fff; }
+  .btn-unlink-child { color: #f87171; }
+  .n-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 15px; margin-top: -1px; }
+  .n-del:hover { color: #ef4444; }
+  .n-body { padding: 10px 12px; }
+  .n-desc { font-size: 11.5px; line-height: 1.5; color: var(--text-muted); outline: none; cursor: text; user-select: text; min-height: 18px; white-space: pre-wrap; }
+  .n-comments { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; }
+  .comment-block { background: #12141a; padding: 7px 9px; border-radius: 5px; border: 1px dashed var(--border); font-size: 11px; color: #d1d5db; outline: none; cursor: text; user-select: text; white-space: pre-wrap; }
+  .comment-block:empty:before { content: "Напиши мысль..."; color: #6b7280; pointer-events: none; }
+  .btn-add-comment { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 4px; width: 100%; border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 7px; cursor: pointer; text-transform: uppercase; }
+  .btn-add-comment:hover { background: #2a2d38; color: #fff; }
+  .port {
+    position: absolute; width: 16px; height: 16px; border-radius: 50%;
+    background: #1c1f28; border: 3px solid #6366f1; box-shadow: 0 0 8px rgba(99,102,241,0.6);
+    top: 50%; transform: translateY(-50%); cursor: crosshair; pointer-events: auto; z-index: 20;
+  }
+  .port.in { left: -10px; }
+  .port.out { right: -10px; }
+  .port:hover { background: #6366f1; border-color: #fff; transform: translateY(-50%) scale(1.2); }
+
+  /* DRAG HANDLE */
+  .drag-handle {
+    position: absolute;
+    top: -18px; left: 50%; transform: translateX(-50%);
+    width: 48px; height: 18px;
+    background: #4f52d1;
+    border: 1px solid #6366f1;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    cursor: grab;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+    z-index: 10;
+  }
+  .drag-handle:hover { background: #6366f1; }
+  .drag-handle:active { cursor: grabbing; background: #8b5cf6; border-color: #8b5cf6; }
+  .drag-handle:active .drag-ribs { background-image: repeating-linear-gradient(to bottom, transparent, transparent 2px, rgba(255,255,255,0.9) 2px, rgba(255,255,255,0.9) 4px); }
+  .drag-ribs {
+    width: 22px; height: 8px;
+    background-image: repeating-linear-gradient(to bottom, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 4px);
+  }
+  .node:hover .drag-handle, .node.selected .drag-handle,
+  .text-node:hover .drag-handle, .text-node.selected .drag-handle { opacity: 1; }
+
+  .text-node .drag-handle { background: #2a2d38; border-color: #3f4354; }
+  .text-node .drag-handle:hover { background: #3a3d4a; }
+  .text-node .drag-ribs { background-image: repeating-linear-gradient(to bottom, transparent, transparent 2px, #6b7280 2px, #6b7280 4px); }
+  .text-node .port { border-color: #4b5563; box-shadow: none; }
+  .text-node .port:hover { background: #4b5563; border-color: #d1d5db; }
+  .text-node .port.in { left: -24px; }
+  .text-node .port.out { right: -24px; }
+
+  /* TEXT NODES */
+  .text-node { position: absolute; min-width: 80px; min-height: 32px; }
+  .text-node-content {
+    outline: none; cursor: text; user-select: text;
+    white-space: normal; word-break: break-word; overflow-wrap: break-word;
+    width: 100%; min-height: 100%; display: block; line-height: 1.25; font-weight: 700;
+    color: var(--text-main); background: transparent;
+  }
+  .text-node-content:empty:before { content: attr(data-placeholder); color: #4b5563; pointer-events: none; font-weight: 400; }
+  .text-node-toolbar { position: absolute; top: -34px; left: 0; display: none; gap: 4px; align-items: center; }
+  .text-node:hover .text-node-toolbar, .text-node.selected .text-node-toolbar { display: flex; }
+  .text-node.editing .text-node-content { cursor: text; }
+  .text-node.editing { outline: 2px solid #6366f1; outline-offset: 2px; border-radius: 2px; }
+  .tn-btn { background: #252836; border: 1px solid var(--border); color: var(--text-muted); font-size: 11px; border-radius: 4px; cursor: pointer; padding: 2px 6px; line-height: 1.4; }
+  .tn-btn:hover { background: #3a3d4a; color: #fff; }
+  .text-resize-handle {
+    position: absolute; bottom: -5px; right: -5px; width: 14px; height: 14px;
+    background: #6366f1; border-radius: 3px; cursor: nwse-resize;
+    border: 2px solid rgba(255,255,255,0.3);
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .text-node:hover .text-resize-handle, .text-node.selected .text-resize-handle { opacity: 1; }
+
+  /* Ghost */
+  #ghost-card { position: fixed; pointer-events: none; z-index: 1000; background: var(--node-bg); border: 2px solid var(--primary); padding: 10px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); opacity: 0.8; width: 240px; display: none; }
+  #ghost-card h4 { font-size: 12px; margin-bottom: 3px; }
+  #ghost-card p { font-size: 10px; color: var(--text-muted); }
+
+  /* Color picker */
+  #color-picker { position: fixed; background: #2a2d38; padding: 8px; border-radius: 10px; display: none; flex-wrap: wrap; gap: 6px; z-index: 500; border: 1px solid #4b5563; box-shadow: 0 8px 24px rgba(0,0,0,0.5); width: 120px; }
+  .cp-swatch { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+  .cp-swatch:hover { border-color: #fff; transform: scale(1.1); }
+  #cp-custom { width: 20px; height: 20px; border-radius: 50%; border: 2px dashed #6b7280; cursor: pointer; background: none; padding: 0; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 900; display: flex; align-items: center; justify-content: center; }
+  .modal { background: #1c1f28; border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+  .modal h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+  .modal label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .modal input, .modal textarea { width: 100%; background: #12141a; border: 1px solid var(--border); border-radius: 6px; color: var(--text-main); padding: 8px 10px; font-size: 12px; font-family: inherit; margin-bottom: 12px; outline: none; user-select: text; }
+  .modal input:focus, .modal textarea:focus { border-color: var(--primary); }
+  .modal textarea { height: 70px; resize: vertical; }
+  .modal-colors { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .modal-colors .cp-swatch { width: 22px; height: 22px; border: 2px solid transparent; }
+  .modal-colors .cp-swatch.selected { border-color: #fff; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .modal-actions button { padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; font-size: 12px; font-weight: 600; background: var(--btn-bg); color: var(--text-main); }
+  .modal-actions .btn-ok { background: var(--primary); border-color: var(--primary); }
+  .modal-actions .btn-ok:hover { background: #4f52d1; }
+
+  .zoom-ui { position: absolute; bottom: 16px; right: 16px; background: rgba(22,24,31,0.9); padding: 5px 10px; border-radius: 8px; font-size: 11px; border: 1px solid var(--border); pointer-events: none; }
+
+  #selection-box { position: absolute; border: 1px dashed rgba(99,102,241,0.8); background: rgba(99,102,241,0.1); pointer-events: none; z-index: 1000; display: none; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="sb-header">
+    <h2>🎮 Level Design</h2>
+    <div class="sb-actions">
+      <button onclick="app.addCategory()">+ Категория</button>
+      <button onclick="app.exportBoard()">⬇ Экспорт</button>
+      <button onclick="app.importBoard()">⬆ Импорт</button>
+    </div>
+    <div class="sb-actions" style="margin-top:6px">
+      <button onclick="app.resetDeck()" style="background:#1a1215;border-color:#4b2030;color:#f87171">↺ Сбросить колоду</button>
+      <button onclick="app.resetBoard()" style="background:#1a1215;border-color:#4b2030;color:#f87171">↺ Сбросить доску</button>
+    </div>
+  </div>
+  <div class="sb-content" id="deck-container"></div>
+</div>
+
+<div id="workspace">
+  <div id="toolbar">
+    <button class="tb" onclick="app.addCustomNode()">+ Новая Сцена</button>
+    <button class="tb" onclick="app.addTextNode()" title="Добавить текстовую метку на холст">T Текст</button>
+    <div style="flex:1"></div>
+    <button class="tb" id="btn-undo" onclick="app.undo()" disabled>↩ Назад (Ctrl+Z)</button>
+    <button class="tb" onclick="app.resetView()">◎ Центр</button>
+    <button class="tb" onclick="app.clearBoard()">🗑 Очистить стол</button>
+  </div>
+  <div id="viewport">
+    <div id="canvas"><svg id="edges-layer"></svg></div>
+    <div id="selection-box"></div>
+  </div>
+  <div class="zoom-ui">Zoom: <span id="z-val">100%</span></div>
+</div>
+
+<div id="ghost-card"><h4 id="gc-title"></h4><p id="gc-desc"></p></div>
+
+<div id="color-picker">
+  <div class="cp-swatch" style="background:#cbd5e1" data-c="#cbd5e1"></div>
+  <div class="cp-swatch" style="background:#3b82f6" data-c="#3b82f6"></div>
+  <div class="cp-swatch" style="background:#10b981" data-c="#10b981"></div>
+  <div class="cp-swatch" style="background:#f59e0b" data-c="#f59e0b"></div>
+  <div class="cp-swatch" style="background:#ef4444" data-c="#ef4444"></div>
+  <div class="cp-swatch" style="background:#8b5cf6" data-c="#8b5cf6"></div>
+  <div class="cp-swatch" style="background:#ec4899" data-c="#ec4899"></div>
+  <div class="cp-swatch" style="background:#06b6d4" data-c="#06b6d4"></div>
+  <div class="cp-swatch" style="background:#f97316" data-c="#f97316"></div>
+  <div class="cp-swatch" style="background:#64748b" data-c="#64748b"></div>
+  <input type="color" id="cp-custom" title="Свой цвет">
+</div>
+
+<input type="file" id="import-input" accept=".json" style="display:none">
+
+<script>
+// ─── DEFAULT DECK ───────────────────────────────────────────────────────────
+const DEFAULT_DECK = [
+
+  // ── ШАБЛОН СЦЕНЫ ──────────────────────────────────────────────────────────
+  { id: 'ld_scene', name: '🎬 Шаблон Сцены', color: '#6366f1', open: true, cards: [
+    { id: 'ls1', title: 'Новая Сцена',
+      content: 'Добавь заголовок сцены. Перетащи на холст и заполни 4 слоя: Геймплей, Нарратив, История, Эмоция.' },
+    { id: 'ls2', title: 'Ключевой момент',
+      content: 'Момент, который игрок должен запомнить. Чем он уникален в цепочке сцен?' },
+    { id: 'ls3', title: 'Переход к следующей',
+      content: 'Как эта сцена ведёт к следующей? Что мотивирует игрока продолжать?' }
+  ]},
+
+  // ── ГЕЙМПЛЕЙ L1 ───────────────────────────────────────────────────────────
+  { id: 'ld_l1', name: '🔵 Геймплей (L1)', color: '#3b82f6', open: false, cards: [
+    { id: 'l1_1', title: 'Действие игрока',
+      content: 'Что игрок делает руками? Опиши физический ввод и пространственную задачу.' },
+    { id: 'l1_2', title: 'Ограничение / Блок',
+      content: 'Что мешает прямому пути? Завал, дверь, враг, загадка.' },
+    { id: 'l1_3', title: 'QTE / Событие',
+      content: 'Принудительная интерактивность. Что игрок должен успеть нажать и зачем?' },
+    { id: 'l1_4', title: 'Исследование',
+      content: 'Игрок свободно изучает пространство. Что он может найти?' }
+  ]},
+
+  // ── НАРРАТИВ L2 ───────────────────────────────────────────────────────────
+  { id: 'ld_l2', name: '🟡 Нарратив (L2)', color: '#eab308', open: false, cards: [
+    { id: 'l2_1', title: 'Цель персонажа',
+      content: 'Зачем персонаж это делает? Немедленная нарративная задача сцены.' },
+    { id: 'l2_2', title: 'Информация / Раскрытие',
+      content: 'Что игрок узнаёт в этой сцене о мире, персонаже или ситуации?' },
+    { id: 'l2_3', title: 'Конфликт воли',
+      content: 'Чего персонаж хочет vs. что ему мешает. Внешнее или внутреннее противоречие.' }
+  ]},
+
+  // ── ИСТОРИЯ L3 ────────────────────────────────────────────────────────────
+  { id: 'ld_l3', name: '🟣 История (L3)', color: '#a855f7', open: false, cards: [
+    { id: 'l3_1', title: 'Диалог / Рация',
+      content: 'Что говорят персонажи? Дай черновик реплик с именами.' },
+    { id: 'l3_2', title: 'Окружение / Сеттинг',
+      content: 'Что игрок видит? Звуки, свет, атмосферные детали.' },
+    { id: 'l3_3', title: 'Лор-объект',
+      content: 'Предмет или знак, несущий информацию о мире без прямого объяснения.' },
+    { id: 'l3_4', title: 'Голос в голове',
+      content: 'Внутренний монолог персонажа или чужая воля, проникающая в разум.' }
+  ]},
+
+  // ── ЭМОЦИЯ L4 ─────────────────────────────────────────────────────────────
+  { id: 'ld_l4', name: '🔴 Эмоция (L4)', color: '#f43f5e', open: false, cards: [
+    { id: 'l4_1', title: 'Целевая эмоция',
+      content: 'Что игрок должен чувствовать в этот момент? Назови точно.' },
+    { id: 'l4_2', title: 'Момент напряжения',
+      content: 'Пик тревоги или опасности. Что создаёт его визуально и механически?' },
+    { id: 'l4_3', title: 'Катарсис / Облегчение',
+      content: 'После пика — куда уходит напряжение? Награда, юмор, тишина?' }
+  ]},
+
+  // ── СТРУКТУРА УРОВНЯ ──────────────────────────────────────────────────────
+  { id: 'ld_struct', name: '🗺 Структура Уровня', color: '#10b981', open: false, cards: [
+    { id: 'st1', title: 'Открытая зона',
+      content: 'Игрок может исследовать. Определи границы и POI.' },
+    { id: 'st2', title: 'Коридорный отрезок',
+      content: 'Линейный путь. Какова ритмическая функция (разгон, нагнетание, отдых)?' },
+    { id: 'st3', title: 'Арена',
+      content: 'Замкнутое пространство для столкновения или события. Выходы блокируются.' },
+    { id: 'st4', title: 'Безопасная зона',
+      content: 'Место без угрозы. Для экспозиции, передышки или решения загадки.' }
+  ]},
+
+  // ── ЗАМЕТКИ ───────────────────────────────────────────────────────────────
+  { id: 'ld_notes', name: '📋 Заметки', color: '#64748b', open: false, cards: [
+    { id: 'nt1', title: 'TODO',
+      content: 'Что нужно доделать в этой части?' },
+    { id: 'nt2', title: 'Вопрос дизайнеру',
+      content: 'Открытый вопрос, требующий решения команды.' },
+    { id: 'nt3', title: 'Альтернативный вариант',
+      content: 'Другой способ решить эту сцену. Запомни на случай ревизии.' }
+  ]}
+];
+
+const DEFAULT_BOARD = {
+  nodes: [
+    // ── ПРОЛОГ (верхний ряд, y=-700) ─────────────────────────────────────────
+    {
+      id: 'pr1', x: -2880, y: -700,
+      title: 'СЦЕНА 1 — Загрузка EyeSys',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'pr1_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Белый экран с чёрными линиями грида. Лого EyeSys по центру, прогресс-бар загрузки. Постепенно вокруг камеры игрока поочерёдно появляются объекты симуляции (мусорные баки, ящики, стены переулка) — пока всё пространство не заполняется. ХИТРЫЙ ТРЮК: объекты спавнятся не по всему уровню, а только рядом с игроком, имитируя "загрузку мира". UI загрузки.\n(не решено: будет ли в демо full-body или только руки)' },
+        { id: 'pr1_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Установить визуальный язык: игра — это симуляция, наблюдаемая через систему EyeSys. Игрок впервые видит интерфейс.' },
+        { id: 'pr1_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Лого EyeSys, грид-эстетика. Системные звуки: бипы, гул серверов. Слева сверху появляется надпись о состоянии системы и исчезает (в том же углу позже будут появляться задания).' },
+        { id: 'pr1_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Любопытство и лёгкий дискомфорт. "Что за система?" Чувство наблюдаемости — игрок не один, его смотрят.' },
+        { id: 'pr1_l5', title: 'EYESYS UI', icon: 'terminal', color: '#06b6d4', comments: [], subNodes: [],
+          content: '//EYESYS_Intelligence Support\nSYSTEM BOOT\n>>Initializing recipient telemetry... loading environmental geometry... agent feed online.\n\n(Надпись плавно появляется в левом верхнем углу и так же плавно исчезает. Знакомство с тем углом, где позже будут падать задания и ворнинги.)' }
+      ]
+    },
+    {
+      id: 'pr2', x: -2460, y: -700,
+      title: 'СЦЕНА 2 — Алтарь и Запись для Лили',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'pr2_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Мэг стоит в полностью тёмном переулке. Перед ней мини-алтарь из ящиков: 3 свечи (погашены), шторка, кукла. Движение заблокировано. Иконка интеракции появляется над свечами ПООЧЕРЁДНО — игрок зажигает их одну за другой нажатием. После третьей свечи — автоматически запускается запись (Мэг говорит в камеру/диктофон).' },
+        { id: 'pr2_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Зажечь все свечи — личный ритуал перед записью. Передать сообщение дочери на случай если Мэг не вернётся. Знакомство с приёмом "Наблюдатель/Аналист" — Мэг знает, что её смотрят.' },
+        { id: 'pr2_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'МЭГ (после третьей свечи, прямо в камеру): «Если ты смотришь эту запись, пожалуйста, сделай для меня одолжение. Я знаю как работает система. Поэтому обращаюсь к тебе напрямую. Передай моей дочери это сообщение.»\n[НАЧАЛО ЗАПИСИ]\nМЭГ: «Лили, твоя мама попала в серьёзную передрягу и не факт что я вернусь. Помни — что бы ни случилось, мама всегда с тобой. Неважно что.»\n[КОНЕЦ ТРАНСМИССИИ]\nСТИВЕНС: «О боже... Очередная слезливая история мамы и её дочки. Как трогательно.»\nДЖЕК (рация): «Мэг, приём, всё в порядке? Связь отключилась?»\nМЭГ: «Да, всё в норме. Нужно было оставить кое-какое послание. Не бери в голову.»\nДЖЕК: «Мм, понимаю. Хорошо, напротив тебя должна быть Бейкер-стрит, оттуда около 7 минут до вышки связи. Я с тобой. Постарайся не отключаться.»\nМЭГ: «Извини. Нет проблем.»' },
+        { id: 'pr2_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Уязвимость и тяжесть. Игрок узнаёт что у Мэг есть дочь Лили и что Мэг боится не вернуться.\nДискомфорт от циничной реакции Стивенса — контраст с интимностью момента.\nЛёгкое раздражение Мэг от того что её "подсматривают" за личным.\nМета-связь: игрок понимает что он и есть тот самый "Наблюдатель", к которому Мэг обращается.' },
+        { id: 'pr2_l5', title: 'EYESYS UI', icon: 'terminal', color: '#06b6d4', comments: [], subNodes: [],
+          content: '//EYESYS_Intelligence Support\nActive Objective:\n[1] Light the candles\n>>Recipient is performing a personal ritual. Standby — no operational input required from analyst.\n\n(Задание короткое и пассивное — система не вмешивается в личный момент, но всё равно фиксирует его. Игрок-аналист "наблюдает" как протокол.)' }
+      ]
+    },
+    {
+      id: 'pr3', x: -2040, y: -700,
+      title: 'СЦЕНА 3 — Переулок и Дверь на цепи',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'pr3_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Идём вперёд — упираемся в забор/завал. Поворот направо. Узкий тёмный переулок, петляем между баками и стенами. Выходим к массивной двери, обмотанной толстой цепью с замком. Фонарь Мэг освещает её. Подойти ближе — триггерится реплика.' },
+        { id: 'pr3_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Найти инструмент чтобы сломать цепь и пройти дальше к Бейкер-стрит.' },
+        { id: 'pr3_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Атмосфера: капли воды, далёкий шум города, мокрый асфальт, запах помойки. Цепь толстая, ржавая, замок промышленный.\nМЭГ (тихо): «Чёрт... Надо найти чем сломать эту цепь.»' },
+        { id: 'pr3_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Лёгкая тревога. Клаустрофобия переулка. Но цель ясна — есть препятствие, есть задача. Игрок собран.' },
+        { id: 'pr3_l5', title: 'EYESYS UI', icon: 'terminal', color: '#06b6d4', comments: [], subNodes: [],
+          content: '//EYESYS_Intelligence Support\nActive Objective:\n[1] Breach the chained gate\n>>Recipient must locate appropriate hardware to sever the chain and exit the initial sector.\n\n(Первое "настоящее" задание. Слово "Recipient" вместо имени Мэг — обезличивание, она для системы — субъект.)' }
+      ]
+    },
+    {
+      id: 'pr4', x: -1620, y: -700,
+      title: 'СЦЕНА 4 — Первый Спуск в Подвал',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'pr4_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Идём направо. Находим дверь с одинокой лампой над ней. Открываем. Крутая лестница вниз. Спускаемся в подвал. Решётчатая перегородка преграждает путь. ЗА решёткой — стул, на стуле кусачки. Дверь решётки заперта на ключ. Вынуждены вернуться наверх.' },
+        { id: 'pr4_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Найти ключ от решётки → достать кусачки → сломать цепь на двери. Вложенный квест.' },
+        { id: 'pr4_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Сырой подвал, плесень на стенах, тусклая лампа болтается на проводе. Тишина, только капли. Кусачки лежат на стуле НЕЕСТЕСТВЕННО — как будто их специально оставили.\nМЭГ: «Заперто. Нужен ключ.»' },
+        { id: 'pr4_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Раздражение от двойного препятствия — "опять головоломка". Лёгкая клаустрофобия от подвала. Подсознательное "что-то не так — почему кусачки лежат прямо на стуле как приманка?"' },
+        { id: 'pr4_l5', title: 'EYESYS UI', icon: 'terminal', color: '#06b6d4', comments: [], subNodes: [],
+          content: '//EYESYS_Intelligence Support\nActive Objective:\n[1] Locate the padlock key\n>>Recipient\'s path to the required hardware is obstructed. A physical key must be found to proceed.\n\n(Задание апдейтится при подходе к решётке. Сухой бюрократический тон контрастирует с жутью подвала.)' }
+      ]
+    },
+    {
+      id: 'pr5', x: -1200, y: -700,
+      title: 'СЦЕНА 5 — Души которые должны были встретиться',
+      content: '', color: '#dc2626', comments: [],
+      subNodes: [
+        { id: 'pr5_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Поднимаемся обратно. ШОК: проход откуда мы пришли — заблокирован. Только что был открыт. На стене написано: «ДУШИ КОТОРЫЕ ДОЛЖНЫ БЫЛИ ВСТРЕТИТЬСЯ». Игрок заперт в узком пространстве. Начинает обыскивать всё подряд. Обнаруживает интеракцию: можно отодвигать крышки мусорных баков. В одном из баков — ключ.' },
+        { id: 'pr5_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Понять что мы заперты. Не паниковать, обыскать всё пространство. Найти ключ.\nОбучение игрока: интеракция с окружением (отодвигание крышек) — теперь это часть геймплея.' },
+        { id: 'pr5_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Надпись на стене — кривая, краской/чем-то тёмным. Запах мусора. Стук собственного сердца.\nМЭГ (нервно): «Какого... Тут же был проход!»\nМЭГ (читая надпись): «"Души которые должны были встретиться"... Что за бред.»\nМЭГ (находя ключ): «Что ты делаешь в мусорке, малыш...»' },
+        { id: 'pr5_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Скачок паники: "проход исчез сам собой?!". Чьё-то присутствие.\nПараноидальная необходимость трогать всё подряд — обучение через страх.\nОблегчение когда находим ключ — но и тёмное чувство: "кто его сюда положил?". Это не случайность.' },
+        { id: 'pr5_l5', title: 'EYESYS UI', icon: 'terminal', color: '#06b6d4', comments: [], subNodes: [],
+          content: '//EYESYS_Intelligence Support\nActive Objective:\n[1] Search the immediate perimeter\n>>Topological shift detected. Recipient is confined to the current radius and must search waste receptacles.\n\n("Topological shift detected" — система СПОКОЙНО фиксирует что геометрия мира поменялась. Игрок понимает: для EYESYS это норма. Что они вообще наблюдают?!)' }
+      ]
+    },
+    {
+      id: 'pr6', x: -780, y: -700,
+      title: 'СЦЕНА 6 — Кусачки и Преследователь',
+      content: '', color: '#dc2626', comments: [],
+      subNodes: [
+        { id: 'pr6_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Спускаемся в подвал. Открываем решётку ключом. Подходим к стулу, забираем кусачки. ТРИГГЕР: свет начинает мигать → лампа гаснет. Остаётся только фонарь Мэг — но он светит ОЧЕНЬ слабо (как будто разряжается). Идём к двери наверх — она заблокирована. На двери нарисованы ГЛАЗА. Промпт: "Посмотри назад". Камера разворачивается. Из тёмного коридора слышны шаги и тяжёлое дыхание. Звук приближается. Ближе. Совсем рядом — БУМ, свет включается, и слышен топот УБЕГАЮЩИХ шагов. Никого не видно.' },
+        { id: 'pr6_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Забрать кусачки и выбраться. Не паниковать когда выключается свет. Пережить первый контакт с преследователем (он уходит сам).' },
+        { id: 'pr6_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Звук: мерное тяжёлое дыхание во тьме, шаркающие шаги, лёгкий металлический скрежет (труба?). После "бума" — топот по бетону, удаляющийся.\nМЭГ (хриплым шёпотом): «Кто здесь...»\nМЭГ (после того как свет включился): «Что это, блять, было?!»\nДЖЕК (рация, с помехами): «Мэг? Мэг, ты целая? Я тут шум слышу.»\nМЭГ: «Я... да. Иду дальше.»' },
+        { id: 'pr6_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'ЧИСТЫЙ УЖАС. Беспомощность — фонарь слабый, путь назад заблокирован, дверь смотрит на тебя глазами.\nЗвук дыхания во тьме = pure dread. Игрок цепенеет.\nОблегчение когда свет включается, но новый страх: "ОНО было здесь, в полуметре от меня. И ушло само." Кто это? Почему ушёл?' },
+        { id: 'pr6_l5', title: 'EYESYS UI', icon: 'terminal', color: '#06b6d4', comments: [], subNodes: [],
+          content: '//EYESYS_Intelligence Support\nSystem Warning:\n[!] MAINTAIN POSITION\n>>Lighting failure and hostile entity detected. Recipient\'s biometric stress is critical. Standby for resolution.\n\n(Статус меняется с Active Objective на System Warning — другой цвет, тревожный глитч/мерцание. Команда [!] вместо [1]. Жуткое: система видит "hostile entity", но просит СТОЯТЬ НА МЕСТЕ — игрок против инстинкта бежать.)' }
+      ]
+    },
+    {
+      id: 'pr7', x: -360, y: -700,
+      title: 'СЦЕНА 7 — Это Мой Дом',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'pr7_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Поднимаемся из подвала. Проход всё так же заблокирован. Но теперь дверь СЛЕВА (которая тоже была на цепи) — её можно сломать кусачками. Ломаем, заходим. Маленькая запущенная комната. На стене кривая надпись: «ЭТО МОЙ ДОМ». Дверь напротив (выход) заблокирована старой кроватью. Подходим к кровати — ТРИГГЕР: странный шум, музыка нарастает, пробки выбивает (свет гаснет). Слышим как открываются двери подвала. Шаги идут к нам.' },
+        { id: 'pr7_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Сломать дверь кусачками. Пройти через комнату. Отодвинуть кровать чтобы освободить выход. Не дать преследователю догнать — действовать быстро.' },
+        { id: 'pr7_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Атмосфера: бумажные обои оторваны полосами, на полу детские игрушки в пыли, единственная лампочка качается. Запах сырости и старой ткани.\nНадпись на стене кривая, детским почерком: «ЭТО МОЙ ДОМ».\nМЭГ (читая): «Чей дом?..»\n(пробки выбивает с громким щелчком, музыка нарастает)\nМЭГ: «Чёрт. Чёрт-чёрт-чёрт.»\nДЖЕК (рация, паникует): «Мэг, что у тебя там?!»\nМЭГ: «Меня снова кто-то преследует!»' },
+        { id: 'pr7_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Нарастающее давление. Музыка как тиски.\n"ЭТО МОЙ ДОМ" — оно претендует на пространство. Мы — вторженцы. Эмпатия и ужас одновременно: чей это дом? Ребёнка?\nСвет гаснет — "опять то же самое, я не выдержу".\nШаги из подвала = адреналин на максимуме. Кровать как гиря — каждая секунда тянется.' },
+        { id: 'pr7_l5', title: 'EYESYS UI', icon: 'terminal', color: '#06b6d4', comments: [], subNodes: [],
+          content: 'ШАГ 1 — после выхода из подвала с кусачками:\n//EYESYS_Intelligence Support\nActive Objective:\n[1] Breach the secondary door\n>>Hardware acquired. Recipient is instructed to use the bolt cutters on the alternative exit route.\n\n———\n\nШАГ 2 — внутри комнаты, при подходе к кровати (свет гаснет, шаги):\n//EYESYS_Intelligence Support\nActive Objective:\n[1] Displace the physical obstruction\n>>Hostile entity approaching. Recipient must move the bed to secure an emergency egress route.\n\n("Hostile entity approaching" — система снова фиксирует преследователя, но статус ещё Active Objective, не Warning. Намёк: для EYESYS это уже не критично, она привыкла. Это пугает.)' }
+      ]
+    },
+    {
+      id: 'pr8', x: 60, y: -700,
+      title: 'СЦЕНА 8 — Прорыв на Улицу 01',
+      content: '', color: '#dc2626', comments: [],
+      subNodes: [
+        { id: 'pr8_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Отодвигаем кровать (зажатая клавиша). Выходим в проход который ведёт к ТОЙ САМОЙ двери на цепи. Но теперь проход ЗАВАЛЕН мусором — ящики, матрас, хлам. Пробираемся через него (несколько последовательных интеракций). За нами кто-то идёт и стучит металлической трубой по полу. Удары трубы приближаются с каждым ящиком. Подходим к двери: отодвигаем матрас → ящики → мусор → достаём кусачки → ломаем замок на цепи → открываем дверь. Выходим на широкую УЛИЦУ 01. Уличные фонари включаются. Камера смотрит назад — в проёме никого.' },
+        { id: 'pr8_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Прорваться через завал быстрее преследователя. Использовать кусачки на цепи. Вырваться из заколоченного здания на открытую улицу.' },
+        { id: 'pr8_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Звук: удары металлической трубы по бетонному полу — ритмичные, неумолимые, БАМ... БАМ... БАМ... Дыхание Мэг сбивается.\nМЭГ (отодвигая мусор): «Давай-давай-давай...»\n(удар трубы — БАМ)\nМЭГ: «Чёрт!»\n(второй удар — БАМ, ближе)\n(кусачки щёлкают по цепи, цепь падает с грохотом)\nМЭГ выскакивает на улицу, оборачивается.\n(тишина. Фонари мигают и зажигаются. В проёме — никого.)\nМЭГ (тяжело дыша, почти срывается): «...твою мать.»\nДЖЕК (рация, с облегчением): «Мэг? Мэг, ты вышла? Я слышу что ты на улице. Дыши, дыши.»' },
+        { id: 'pr8_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Пиковая паника при пробирании через завал — "удары приближаются, я сейчас умру".\nКатарсис когда цепь падает и дверь открывается.\nПараноидальное оборачивание — "оно за мной?!". Никого. Ещё страшнее.\nОблегчение + дрожь в коленях. Игрок и Мэг тяжело дышат вместе. На пределе.\nПереход к следующей сцене: расслабиться нельзя, впереди Бейкер-стрит.' },
+        { id: 'pr8_l5', title: 'EYESYS UI', icon: 'terminal', color: '#06b6d4', comments: [], subNodes: [],
+          content: '//EYESYS_Intelligence Support\nActive Objective:\n[1] Evacuate the sector immediately\n>>Threat imminent. Recipient must navigate the debris field and breach the main gate to survive.\n\n(Слово "survive" в команде системы — впервые. До этого были нейтральные "proceed", "locate", "search". Теперь — выживание. Корпоративный тон трескается.)' }
+      ]
+    },
+    // ── ОСНОВНОЕ ДЕМО (нижний ряд, y=100) ────────────────────────────────────
+    {
+      id: 'n1', x: 60, y: 100,
+      title: 'СЦЕНА 9 — Завал на Бейкер-стрит',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'n1_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Выход из заброшенного магазина. Путь прямо заблокирован строительным мусором. Игрок поворачивает налево, обходит завал по дуге.' },
+        { id: 'n1_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Обойти завал, чтобы продвинуться к вышке (цель Джека).' },
+        { id: 'n1_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'МЭГ: «Джек, я на Бейкер-стрит. Но тут завал.»\nДЖЕК (рация): «Принял. Снизу по улице ещё проход. 5 минут ходьбы — и мы у цели.»' },
+        { id: 'n1_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Лёгкий испуг после галлюцинации в магазине. Настороженность, поиск безопасного пути.' }
+      ]
+    },
+    {
+      id: 'n2', x: 480, y: 100,
+      title: 'СЦЕНА 10 — Взгляд во тьму / Тотем',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'n2_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Игрок выходит на длинную пустую улицу. Камера ловит силуэт конструкции в конце улицы. Начинает идти прямо к ней.' },
+        { id: 'n2_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Дойти до аномалии, понять, что это такое.' },
+        { id: 'n2_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'МЭГ: «Это что ещё за хрень?..»\n(под конструкцией видны тёмные тряпки — непонятно, что это)' },
+        { id: 'n2_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Любопытство и напряжение. «Что это за хрень там впереди?»' }
+      ]
+    },
+    {
+      id: 'n3', x: 900, y: 100,
+      title: 'СЦЕНА 11 — Блэкаут и Красный свет',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'n3_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Фонари гаснут с громким щелчком. Абсолютная тьма. На Тотеме пульсирует красный маяк. Игрок идёт на свет как на единственный ориентир.' },
+        { id: 'n3_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Добраться до источника красного света — он единственный видимый объект.' },
+        { id: 'n3_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'ТОТЕМ (эхо Мэг): «Будет печально, если я не вернусь домой...»\n«Она ждёт меня... Я не могу просто так тут остаться...»\n«Она — самое дорогое, что у меня есть...»\nМЭГ: «Какого хрена...»' },
+        { id: 'n3_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Тревога и интрига. Игрок узнаёт, что у Мэг есть дочь; чувствует — Аномалия лезет в голову.' }
+      ]
+    },
+    {
+      id: 'n4', x: 1320, y: 100,
+      title: 'СЦЕНА 12 — Провал в Палеолит',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'n4_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Резкий визуальный переход (эффект всасывания). Игрок идёт по затопленному туннелю пещеры. Фонарика нет, потустороннее свечение минералов.' },
+        { id: 'n4_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Исследовать место, куда протащила Аномалия.' },
+        { id: 'n4_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Стены в наскальных рисунках (глаз, щупальца, символы). Гул, капанье воды, горловое пение вдалеке.\nМЭГ (шёпотом, в трансе): «Я уже была тут... когда-то.»' },
+        { id: 'n4_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Вынос мозга и благоговение. «Откуда пещера?! Вау, что за величие...»' }
+      ]
+    },
+    {
+      id: 'n5', x: 1740, y: 100,
+      title: 'СЦЕНА 13 — Алтарь и Жертвоприношение',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'n5_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Скала с главным рисунком, каменная Чаша, грубый Нож. Промпт [взять нож] → неконтролируемая анимация → QTE: БЫСТРО НАЖИМАЙТЕ E ЧТОБЫ СОПРОТИВЛЯТЬСЯ.' },
+        { id: 'n5_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Сопротивляться чужой воле — не дать Мэг распороть себе живот.' },
+        { id: 'n5_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'ГОЛОС В ГОЛОВЕ: «Опустись на колени. Возьми нож. Так нужно. Сделай это.»\nДЖЕК (кричит в рацию): «Мэг! Мэг, что такое?! Не молчи!»' },
+        { id: 'n5_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Шок и паника. «Блять, это голос Мэг, но кто мной управляет?!» Игрок отчаянно долбит по кнопке.' }
+      ]
+    },
+    {
+      id: 'n6', x: 2160, y: 100,
+      title: 'СЦЕНА 14 — Пробуждение и Пустота',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'n6_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'QTE выигран. Вспышка — пещера схлопывается. Мэг на коленях у Тотема, тяжело дышит, отбрасывает кусок ржавого металла (в трипе был ножом). UI-подсказка: [E — Отсканировать объект]. Прогресс-бар сканирования (UI PRISM). Игрок встаёт и идёт дальше. Улица погружена во тьму. Прямо по курсу — абсолютная чёрная пустота (Мегалит скрыт). В пустоту уходят толстые пучки проводов. Пройти прямо нельзя. Поворот направо в тёмную архитектурную арку.' },
+        { id: 'n6_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Прийти в себя после шока. Выполнить протокол (отсканировать аномальный узел). Продолжить путь к вышке. Идти прямо в пустоту равносильно самоубийству — единственный путь направо.' },
+        { id: 'n6_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'ДЖЕК (сквозь помехи): «Мэг! Мэг, что такое?! Ты не отвечаешь! Не молчи!»\nМЭГ (тяжело дыша): «О господи... Я... я в норме. Всё в порядке. Продолжаю двигаться.»\n[Сканирование Тотема. Аудиоканал офиса PRISM]\nСТИВЕНС (с уважением): «Ты в норме... А я, пожалуй, проверю эту конструкцию. Система, сделай скан.»\nEYESYS: «Предположительно оккультное сооружение. Компоненты: металл, пластик, стекло. Обнаружено сильное искажающее поле. Классификация 4Б-2-1.»\nСТИВЕНС (присвистывает): «Нихуя себе. Вот это серьёзная вещь. Удивительно, как хайв-майнд разрастается в городе.»' },
+        { id: 'n6_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Катарсис: игрок выдыхает после QTE, гордость — "она справилась".\nСинхронизация со Стивом: Стивенс впечатлён — мета-связь игрок↔клерк.\nСтрах неизвестности: Мегалит скрыт во тьме, видны только провода уходящие в никуда. Мозг игрока пугает сам себя: "Оно всё ещё там... во мраке". Жгучее желание свернуть направо.' }
+      ]
+    },
+    {
+      id: 'n7', x: 2580, y: 100,
+      title: 'СЦЕНА 15 — Кафельный Туннель',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'n7_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Геометрия: узкий длинный коридор со сводчатым потолком. Тусклый свет в конце — выход виден, но путь заблокирован.\nПрепятствия: нагромождения стульев, больничные ширмы, куклы, плотные шторы с потолка — слепые зоны. Игрок идёт "змейкой".\nСкрипт "Блэкаут": за первой шторой фонарик искрит и полностью гаснет.\nСкрипт "Фейк-Джампскейр": на середине пути с громким лязгом падает металлическая бочка.' },
+        { id: 'n7_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Как можно быстрее пересечь жуткий туннель и выйти на открытую Улицу 03.\nМотивация: страх замкнутого пространства, чувство что в этой кишке она не одна.' },
+        { id: 'n7_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Атмосфера: стерильная блестящая советская кафельная плитка, запах сырости, пара болезненно-жёлтых ламп. После поломки фонарика — густая темнота, только силуэт выхода.\nМЭГ (раздражённо и испуганно): «Черт... Почему именно сейчас?!»\nЗвуковой дизайн: гулкое эхо шагов по плитке, поскрипывание мебели, тихий звон цепей. Саспенс: за шторами слышен звук волочащегося по кафелю мешка — шуршание и скрежет.' },
+        { id: 'n7_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Фрустрация и уязвимость: выход виден, но надо петлять. Потеря фонарика — "У меня забрали свет, я слеп".\nКлаустрофобия: давящие кафельные стены, эффект морга.\nПаранойя: звук волочащегося мешка слышен, но источника за шторами не видно. Мозг рисует монстра. Упавшая бочка заставляет вздрогнуть. Напряжение натягивается до предела.' }
+      ]
+    },
+    {
+      id: 'n8', x: 3000, y: 100,
+      title: 'СЦЕНА 16 — Затишье на Улице 03',
+      content: '', color: '#6366f1', comments: [],
+      subNodes: [
+        { id: 'n8_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Резкая смена масштаба: узкая кишка туннеля → огромная широкая улица (площадь) с высокими зданиями по бокам. Вдали виден большой старый Склад (Ангар), за ним — красная Вышка Связи.\nДействие: просто идти вперёд ~30 секунд. Никаких препятствий, прямой путь к цели.\nСкрипт "Наблюдатели": на крыше здания слева ритмично мигает луч (вкл-выкл). Через пару секунд такой же сигнал на крыше справа. Мэг не реагирует.' },
+        { id: 'n8_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Обойти старый склад, добраться до Вышки Связи.\nМотивация: облегчение — цель видна невооружённым глазом, желание закончить этот кошмар.' },
+        { id: 'n8_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Атмосфера: мертвенный болезненный свет фонарей. Абсолютная неестественная пустота и простор.\nМЭГ (с надеждой): «Вижу башню.»\nДЖЕК (рация): «Супер, мы почти сделали это. Прямо перед тобой должен быть старый склад, нам нужно его обойти. Башня прямо за ним.»\n(Только гулкие шаги Мэг и тяжёлое дыхание)\nМЭГ (тихо, себе под нос): «Не нравится мне эта тишина...»\n(Начинают мигать фонари на крышах. Мэг не реагирует).' },
+        { id: 'n8_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Ложное облегчение: "Фух, наконец-то простор, вон башня, конец близко".\nАгорафобия и паранойя: пустая широкая улица давит, одинокие шаги создают дискомфорт. Фраза Мэг про тишину подтверждает опасения.\nДраматическая ирония: игрок замечает мигающие сигналы на крышах, Мэг нет. "Нас пасут! Они передают сигналы!". Игрок кричит в монитор, но ничего не может сделать. Струна натянута.' }
+      ]
+    },
+    {
+      id: 'n9', x: 3420, y: 100,
+      title: 'СЦЕНА 17 — Погоня и Финал Демо',
+      content: '', color: '#dc2626', comments: [],
+      subNodes: [
+        { id: 'n9_l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6', comments: [], subNodes: [],
+          content: 'Триггер (старт): игрок доходит до точки на площади — сзади срабатывает эвент.\nДействие: зажать Shift (Спринт) и бежать вперёд.\nЗагон: боковые переулки перекрыты баррикадами и грузовиками. Сзади надвигается толпа. Единственный путь — в приоткрытые двери Ангара.\nУсловие поражения: остановился или замешкался → экран темнеет, звук выстрела, звук падающего тела.\nЭкран смерти (мета-лор): звук десинхронизации. СТИВЕНС (реальность): "Вот блять." Клик мышки — загрузка.\nФинал: коллайдер внутри Ангара → управление отключается → финальная катсцена демо.' },
+        { id: 'n9_l2', title: 'НАРРАТИВ', color: '#eab308', comments: [], subNodes: [],
+          content: 'Выжить. Сбежать от вооружённой толпы.\nМотивация: животный инстинкт самосохранения. Улицы перекрыты — Ангар единственное укрытие.' },
+        { id: 'n9_l3', title: 'ИСТОРИЯ', color: '#a855f7', comments: [], subNodes: [],
+          content: 'Эвент (старт): сзади вспыхивают мощные слепящие прожекторы. Оглушительно ревёт сирена. Лязг поднимающихся металлических ворот — из темноты выходят тёмные силуэты множества людей с цепями и палками.\nПогоня: топот толпы и выстрелы (загоняют как дичь). Пули выбивают асфальт прямо под ногами Мэг.\nДЖЕК (орёт в панике): «Беги! Мэг!»\nМЭГ (добегая до переулков): «Черт, улицы перекрыты!»\nДЖЕК: «Прячься в ангар!»\nФинал: Мэг влетает в двери. Тяжёлая металлическая дверь с грохотом падает, отрезая её от толпы. Темнота. Титры демо-версии.' },
+        { id: 'n9_l4', title: 'ЭМОЦИЯ', color: '#f43f5e', comments: [], subNodes: [],
+          content: 'Сенсорный перегруз: после тихой игры в прятки — сирены, слепящий свет, выстрелы. Резкая смена темпа → животный ужас.\nПаника: игрок судорожно жмёт Shift, всё перекрыто. Забегание в ангар = прыжок в последний вагон уходящего поезда.\nКатарсис и клиффхэнгер: дверь с грохотом падает — дикое облегчение. Экран темнеет. "Твою мать! А что в ангаре?! Я заперт с кем-то внутри?!" → жгучее желание сыграть в полную версию.' }
+      ]
+    }
+  ],
+  edges: [
+    { from: 'pr1', to: 'pr2' },
+    { from: 'pr2', to: 'pr3' },
+    { from: 'pr3', to: 'pr4' },
+    { from: 'pr4', to: 'pr5' },
+    { from: 'pr5', to: 'pr6' },
+    { from: 'pr6', to: 'pr7' },
+    { from: 'pr7', to: 'pr8' },
+    { from: 'pr8', to: 'n1' },
+    { from: 'n1', to: 'n2' },
+    { from: 'n2', to: 'n3' },
+    { from: 'n3', to: 'n4' },
+    { from: 'n4', to: 'n5' },
+    { from: 'n5', to: 'n6' },
+    { from: 'n6', to: 'n7' },
+    { from: 'n7', to: 'n8' },
+    { from: 'n8', to: 'n9' }
+  ],
+  texts: []
+};
+
+// ─── APP ─────────────────────────────────────────────────────────────────────
+const app = (() => {
+  const deckContainer = document.getElementById('deck-container');
+  const canvas        = document.getElementById('canvas');
+  const svg           = document.getElementById('edges-layer');
+  const viewport      = document.getElementById('viewport');
+  const ghost         = document.getElementById('ghost-card');
+  const colorPicker   = document.getElementById('color-picker');
+
+  let deck   = [];
+  let board  = { nodes: [], edges: [] };
+  let history = [];
+  let view   = { x: 40, y: 40, zoom: 0.85 };
+
+  let ip = { mode: null, activeId: null, startX: 0, startY: 0, origX: 0, origY: 0, sourceCard: null, dropTarget: null, multiNodes: null };
+  const selBox = document.getElementById('selection-box');
+  let cpCallback = null;
+
+  function guid() { return 'id_' + Math.random().toString(36).substr(2, 9); }
+  function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ── PERSISTENCE ─────────────────────────────────────────────────────────────
+  function save() {
+    localStorage.setItem('ld_deck',  JSON.stringify(deck));
+    localStorage.setItem('ld_board', JSON.stringify(board));
+  }
+  function commitState() {
+    if (history.length > 50) history.shift();
+    history.push(deepClone(board));
+    document.getElementById('btn-undo').disabled = history.length <= 1;
+    save();
+  }
+  function undo() {
+    if (history.length > 1) { history.pop(); board = deepClone(history[history.length-1]); save(); renderBoard(); document.getElementById('btn-undo').disabled = history.length <= 1; }
+  }
+  function clearBoard() { if(confirm('Очистить весь стол?')) { board = { nodes:[], edges:[], texts:[] }; commitState(); renderBoard(); } }
+  function resetDeck() { if(confirm('Сбросить колоду к умолчаниям? Стол не изменится.')) { deck = deepClone(DEFAULT_DECK); save(); renderSidebar(); } }
+  function resetBoard() { if(confirm('Сбросить доску к сценам по умолчанию? Все изменения на столе будут утеряны.')) { board = deepClone(DEFAULT_BOARD); commitState(); renderBoard(); } }
+
+  // ── MIGRATION from mindmap.html ─────────────────────────────────────────────
+  function migrateFromMindmap() {
+    if (localStorage.getItem('ld_migrated')) return null;
+    let old;
+    try { old = JSON.parse(localStorage.getItem('mindmap_data')); } catch(e) { return null; }
+    if (!old || !old.nodes) return null;
+    const layers = [
+      { key: 'l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6' },
+      { key: 'l2', title: 'НАРРАТИВ', color: '#eab308' },
+      { key: 'l3', title: 'ИСТОРИЯ',  color: '#a855f7' },
+      { key: 'l4', title: 'ЭМОЦИЯ',   color: '#f43f5e' }
+    ];
+    const newBoard = {
+      nodes: old.nodes.map(n => ({
+        id: n.id, x: n.x, y: n.y,
+        title: n.title, content: '', color: '#6366f1', comments: [],
+        subNodes: layers.map(L => ({
+          id: n.id + '_' + L.key, title: L.title,
+          content: n[L.key] || '', color: L.color, comments: [], subNodes: []
+        }))
+      })),
+      edges: (old.edges || []).map(e => ({ from: e.from, to: e.to })),
+      texts: []
+    };
+    localStorage.setItem('ld_migrated', '1');
+    return newBoard;
+  }
+
+  // ── INIT ────────────────────────────────────────────────────────────────────
+  function init() {
+    const migrated = migrateFromMindmap();
+    try { deck  = JSON.parse(localStorage.getItem('ld_deck'))  || deepClone(DEFAULT_DECK);  } catch(e) { deck  = deepClone(DEFAULT_DECK); }
+    try { board = migrated || JSON.parse(localStorage.getItem('ld_board')) || deepClone(DEFAULT_BOARD); } catch(e) { board = deepClone(DEFAULT_BOARD); }
+    if (migrated) save();
+    history.push(deepClone(board));
+    applyView(); renderSidebar(); renderBoard(); setupEvents();
+  }
+
+  // ── EXPORT / IMPORT ─────────────────────────────────────────────────────────
+  function exportBoard() {
+    const data = JSON.stringify({ deck, board }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'level_design_' + new Date().toISOString().slice(0,10) + '.json';
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+  function importBoard() {
+    document.getElementById('import-input').click();
+  }
+  document.getElementById('import-input').addEventListener('change', e => {
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if(data.board && data.deck) {
+          deck = data.deck; board = data.board; save(); renderSidebar(); renderBoard();
+          commitState();
+          alert('Проект успешно загружен!');
+        } else { alert('Неверный формат файла.'); }
+      } catch(err) { alert('Ошибка чтения файла.'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // ── MODAL ───────────────────────────────────────────────────────────────────
+  const COLORS = ['#6366f1','#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316','#cbd5e1','#64748b'];
+  function showModal({ title, fields, onOk }) {
+    const overlay = document.createElement('div'); overlay.className = 'modal-overlay';
+    let bodyHtml = `<h3>${title}</h3>`;
+    fields.forEach(f => {
+      if(f.type === 'text' || f.type === 'textarea') {
+        bodyHtml += `<label>${f.label}</label>`;
+        bodyHtml += f.type === 'textarea' ? `<textarea id="mf_${f.id}" placeholder="${f.placeholder||''}">${f.value||''}</textarea>` : `<input id="mf_${f.id}" type="text" placeholder="${f.placeholder||''}" value="${f.value||''}">`;
+      } else if(f.type === 'color') {
+        bodyHtml += `<label>${f.label}</label><div class="modal-colors">`;
+        COLORS.forEach(c => { bodyHtml += `<div class="cp-swatch ${f.value===c?'selected':''}" data-c="${c}" style="background:${c}"></div>`; });
+        bodyHtml += `</div>`;
+      }
+    });
+    bodyHtml += `<div class="modal-actions"><button class="btn-cancel">Отмена</button><button class="btn-ok">OK</button></div>`;
+    const modal = document.createElement('div'); modal.className = 'modal'; modal.innerHTML = bodyHtml;
+    overlay.appendChild(modal); document.body.appendChild(overlay);
+
+    let selectedColor = fields.find(f=>f.type==='color')?.value || COLORS[0];
+    modal.querySelectorAll('.modal-colors .cp-swatch').forEach(sw => {
+      sw.addEventListener('click', () => {
+        modal.querySelectorAll('.modal-colors .cp-swatch').forEach(x=>x.classList.remove('selected'));
+        sw.classList.add('selected'); selectedColor = sw.dataset.c;
+      });
+    });
+
+    modal.querySelector('.btn-cancel').onclick = () => overlay.remove();
+    modal.querySelector('.btn-ok').onclick = () => {
+      const vals = {};
+      fields.forEach(f => { if(f.type==='color') vals[f.id] = selectedColor; else vals[f.id] = document.getElementById('mf_'+f.id)?.value || ''; });
+      overlay.remove(); onOk(vals);
+    };
+    overlay.addEventListener('mousedown', e => { if(e.target===overlay) overlay.remove(); });
+    const firstInput = modal.querySelector('input, textarea'); if(firstInput) setTimeout(()=>firstInput.focus(),50);
+  }
+
+  // ── SIDEBAR ─────────────────────────────────────────────────────────────────
+  function renderSidebar() {
+    deckContainer.innerHTML = '';
+    deck.forEach(cat => {
+      const el = document.createElement('div'); el.className = 'category';
+      const headerHtml = `
+        <div class="cat-header" data-catid="${cat.id}">
+          <span class="cat-arrow ${cat.open?'open':''}">▶</span>
+          <div class="cat-dot" style="background:${cat.color}"></div>
+          <span class="cat-name" style="color:${cat.color}">${esc(cat.name)}</span>
+          <button class="cat-del" data-catid="${cat.id}" title="Удалить категорию">✕</button>
+        </div>
+        <div class="cat-body ${cat.open?'open':''}"></div>
+      `;
+      el.innerHTML = headerHtml;
+      const body = el.querySelector('.cat-body');
+
+      cat.cards.forEach(card => {
+        const c = document.createElement('div'); c.className = 'card-template'; c.style.borderLeftColor = cat.color;
+        c.innerHTML = `<div class="card-title">${esc(card.title)}</div><div class="card-desc">${esc(card.content)}</div><button class="card-del-btn" data-catid="${cat.id}" data-cardid="${card.id}">✕</button>`;
+        c.addEventListener('mousedown', e => {
+          if(e.target.classList.contains('card-del-btn')) return;
+          ip.mode = 'spawnCard'; ip.sourceCard = { ...card, color: cat.color };
+          ghost.style.display = 'block'; ghost.style.borderColor = cat.color;
+          document.getElementById('gc-title').textContent = card.title;
+          document.getElementById('gc-desc').textContent = card.content;
+          ghost.style.left = (e.clientX - ghost.offsetWidth/2) + 'px'; ghost.style.top = (e.clientY-10) + 'px';
+        });
+        c.querySelector('.card-del-btn').addEventListener('click', e => {
+          e.stopPropagation();
+          if(!confirm(`Удалить карточку "${card.title}"?`)) return;
+          cat.cards = cat.cards.filter(x=>x.id!==card.id); save(); renderSidebar();
+        });
+        body.appendChild(c);
+      });
+
+      const addCardBtn = document.createElement('button'); addCardBtn.className = 'btn-add-card'; addCardBtn.textContent = '+ Новая карточка';
+      addCardBtn.addEventListener('click', () => {
+        showModal({ title: 'Новая карточка', fields: [
+          { id:'title', type:'text', label:'Название', placeholder:'Введи заголовок...' },
+          { id:'content', type:'textarea', label:'Описание', placeholder:'Опиши идею...' }
+        ], onOk: vals => {
+          if(!vals.title.trim()) return;
+          cat.cards.push({ id: guid(), title: vals.title.trim(), content: vals.content.trim() });
+          save(); renderSidebar();
+        }});
+      });
+      body.appendChild(addCardBtn);
+
+      el.querySelector('.cat-header').addEventListener('click', e => {
+        if(e.target.classList.contains('cat-del')) return;
+        cat.open = !cat.open; save(); renderSidebar();
+      });
+      el.querySelector('.cat-del').addEventListener('click', e => {
+        e.stopPropagation();
+        if(!confirm(`Удалить категорию "${cat.name}"?`)) return;
+        deck = deck.filter(x=>x.id!==cat.id); save(); renderSidebar();
+      });
+
+      deckContainer.appendChild(el);
+    });
+  }
+
+  function addCategory() {
+    showModal({ title: 'Новая категория', fields: [
+      { id:'name', type:'text', label:'Название категории', placeholder:'Механика, Нарратив...' },
+      { id:'color', type:'color', label:'Цвет', value: COLORS[0] }
+    ], onOk: vals => {
+      if(!vals.name.trim()) return;
+      deck.push({ id: guid(), name: vals.name.trim(), color: vals.color, open: true, cards: [] });
+      save(); renderSidebar();
+    }});
+  }
+
+  // ── CANVAS RENDER ───────────────────────────────────────────────────────────
+  function renderBoard() {
+    [...canvas.querySelectorAll('.node')].forEach(n=>n.remove());
+    [...canvas.querySelectorAll('.text-node')].forEach(n=>n.remove());
+    board.nodes.forEach(renderNode);
+    if(!board.texts) board.texts = [];
+    board.texts.forEach(renderTextNode);
+    renderEdges();
+  }
+
+  function renderTextNode(t) {
+    const el = document.createElement('div');
+    el.className = 'text-node'; el.dataset.tid = t.id;
+    el.style.left = t.x + 'px'; el.style.top = t.y + 'px';
+    el.style.width = t.w + 'px'; el.style.height = t.h + 'px';
+    el.innerHTML = `
+      <div class="drag-handle" title="Перетащить"><div class="drag-ribs"></div></div>
+      <div class="port in" data-port="in"></div><div class="port out" data-port="out"></div>
+      <div class="text-node-toolbar">
+        <button class="tn-btn tn-smaller" title="Меньше">A-</button>
+        <span style="font-size:10px;color:#6b7280;min-width:28px;text-align:center">${t.fontSize}px</span>
+        <button class="tn-btn tn-larger" title="Больше">A+</button>
+        <button class="tn-btn tn-edit" title="Редактировать">✏</button>
+        <button class="tn-btn tn-del" title="Удалить">✕</button>
+      </div>
+      <div class="text-node-content" contenteditable="false" spellcheck="false" data-placeholder="Заголовок..." style="font-size:${t.fontSize}px;color:${t.color||'#f3f4f6'}">${esc(t.content)}</div>
+      <div class="text-resize-handle"></div>
+    `;
+
+    const content = el.querySelector('.text-node-content');
+    const sizeLabel = el.querySelector('.text-node-toolbar span');
+
+    function enterEdit() {
+      el.classList.add('editing');
+      content.contentEditable = 'true';
+      content.focus();
+      const r = document.createRange(); const s = window.getSelection();
+      r.selectNodeContents(content); r.collapse(false);
+      s.removeAllRanges(); s.addRange(r);
+    }
+    function exitEdit() {
+      content.contentEditable = 'false';
+      el.classList.remove('editing');
+      t.content = content.textContent; commitState();
+    }
+
+    el.addEventListener('mousedown', e => {
+      if (e.target.closest('.port')) return;
+      if (e.target.closest('.tn-btn') || e.target.closest('.text-resize-handle')) return;
+      if (el.classList.contains('editing')) return;
+      e.stopPropagation(); e.preventDefault();
+
+      if (!e.shiftKey && !el.classList.contains('selected')) {
+        document.querySelectorAll('.text-node.selected, .node.selected').forEach(x=>x.classList.remove('selected'));
+      }
+      if (e.shiftKey) {
+        el.classList.toggle('selected');
+        if (!el.classList.contains('selected')) return;
+      } else {
+        el.classList.add('selected');
+      }
+
+      const selected = document.querySelectorAll('.text-node.selected, .node.selected');
+      const multiNodes = [];
+      selected.forEach(nodeEl => {
+        const id = nodeEl.dataset.id || nodeEl.dataset.tid;
+        const isTx = nodeEl.classList.contains('text-node');
+        const it = isTx ? board.texts.find(x=>x.id===id) : board.nodes.find(x=>x.id===id);
+        if(it) multiNodes.push({ item: it, origX: it.x, origY: it.y, dom: nodeEl, isNode: !isTx });
+      });
+
+      ip = { mode: 'dragMulti', startX: e.clientX, startY: e.clientY, multiNodes, dropTarget: null };
+    });
+
+    el.addEventListener('dblclick', e => {
+      if (e.target.closest('.tn-btn') || e.target.closest('.text-resize-handle') || e.target.closest('.drag-handle') || e.target.closest('.port')) return;
+      e.stopPropagation();
+      ip.mode = null;
+      enterEdit();
+    });
+
+    el.querySelector('.text-resize-handle').addEventListener('mousedown', e => {
+      e.stopPropagation(); e.preventDefault();
+      ip = { mode: 'resizeText', activeId: t.id, startX: e.clientX, startY: e.clientY, origW: t.w, origH: t.h, origFS: t.fontSize };
+    });
+
+    el.querySelector('.tn-smaller').addEventListener('click', e => {
+      e.stopPropagation();
+      t.fontSize = Math.max(10, t.fontSize - 4);
+      content.style.fontSize = t.fontSize + 'px';
+      sizeLabel.textContent = t.fontSize + 'px';
+      commitState();
+    });
+    el.querySelector('.tn-larger').addEventListener('click', e => {
+      e.stopPropagation();
+      t.fontSize = Math.min(200, t.fontSize + 4);
+      content.style.fontSize = t.fontSize + 'px';
+      sizeLabel.textContent = t.fontSize + 'px';
+      commitState();
+    });
+    el.querySelector('.tn-edit').addEventListener('click', e => {
+      e.stopPropagation(); enterEdit();
+    });
+    el.querySelector('.tn-del').addEventListener('click', e => {
+      e.stopPropagation();
+      board.texts = board.texts.filter(x => x.id !== t.id);
+      commitState(); renderBoard();
+    });
+
+    content.addEventListener('blur', exitEdit);
+    content.addEventListener('keydown', e => { if(e.key === 'Escape') { exitEdit(); content.blur(); } });
+
+    el.querySelectorAll('.port').forEach(p=>{
+      p.addEventListener('mousedown',e=>{
+        e.stopPropagation(); e.preventDefault();
+        if(p.dataset.port==='out'){ip.mode='drawEdge';ip.activeId=t.id;}
+      });
+      p.addEventListener('mouseup',e=>{
+        e.stopPropagation();
+        if(ip.mode==='drawEdge'&&p.dataset.port==='in'&&ip.activeId!==t.id){
+          if(!board.edges.some(ed=>ed.from===ip.activeId&&ed.to===t.id)){board.edges.push({from:ip.activeId,to:t.id});commitState();}
+        }
+        ip.mode=null; renderEdges();
+      });
+    });
+
+    canvas.appendChild(el);
+  }
+
+  function renderNode(n) {
+    const el = document.createElement('div'); el.className = 'node'; el.dataset.id = n.id;
+    el.style.left = n.x+'px'; el.style.top = n.y+'px';
+
+    const allItems = [n, ...(n.subNodes||[])];
+    const hasEdges = board.edges.some(e=>e.from===n.id||e.to===n.id);
+    let html = '<div class="drag-handle" title="Перетащить"><div class="drag-ribs"></div></div>';
+
+    allItems.forEach((item, idx) => {
+      const isParent = idx === 0;
+      let btns = isParent
+        ? (hasEdges ? `<button class="n-unlink btn-unlink-edges" title="Отвязать связи">⚯</button>` : '') + `<button class="n-del btn-del-parent" title="Удалить">✕</button>`
+        : `<button class="n-unlink btn-unlink-child" data-idx="${idx}" title="Отсоединить от группы">⚯</button><button class="n-del btn-del-child" data-idx="${idx}" title="Удалить">✕</button>`;
+
+      const comments = (item.comments||[]).map((txt,ci) =>
+        `<div class="comment-block" data-nodeidx="${idx}" data-cidx="${ci}" contenteditable="true" spellcheck="false">${esc(txt)}</div>`
+      ).join('');
+
+      const iconHtml = item.icon ? `<span class="n-icon" style="color:${item.color}">${esc(item.icon)}</span>` : '';
+      html += `<div class="n-block" style="border-left-color:${item.color}">
+        <div class="n-header">
+          <div class="color-dot" data-nodeidx="${idx}" style="background:${item.color}" title="Цвет"></div>
+          ${iconHtml}
+          <div class="n-title" data-nodeidx="${idx}" contenteditable="true" spellcheck="false">${esc(item.title)}</div>
+          ${btns}
+        </div>
+        <div class="n-body">
+          <div class="n-desc" data-nodeidx="${idx}" contenteditable="true" spellcheck="false">${esc(item.content)}</div>
+          <div class="n-comments">${comments}</div>
+          <button class="btn-add-comment" data-nodeidx="${idx}">+ Комментарий</button>
+        </div>
+      </div>`;
+    });
+
+    html += `<div class="port in" data-port="in"></div><div class="port out" data-port="out"></div>`;
+    el.innerHTML = html;
+
+    el.addEventListener('mousedown', e => {
+      if(e.target.closest('.n-title,.n-desc,.comment-block,.color-dot,.n-del,.n-unlink,.btn-add-comment,.port')) return;
+      e.stopPropagation(); e.preventDefault();
+
+      if (!e.shiftKey && !el.classList.contains('selected')) {
+        document.querySelectorAll('.text-node.selected, .node.selected').forEach(x=>x.classList.remove('selected'));
+      }
+      if (e.shiftKey) {
+        el.classList.toggle('selected');
+        if (!el.classList.contains('selected')) return;
+      } else {
+        el.classList.add('selected');
+      }
+
+      const selected = document.querySelectorAll('.text-node.selected, .node.selected');
+      const multiNodes = [];
+      selected.forEach(nodeEl => {
+        const id = nodeEl.dataset.id || nodeEl.dataset.tid;
+        const isTx = nodeEl.classList.contains('text-node');
+        const it = isTx ? board.texts.find(x=>x.id===id) : board.nodes.find(x=>x.id===id);
+        if(it) multiNodes.push({ item: it, origX: it.x, origY: it.y, dom: nodeEl, isNode: !isTx });
+      });
+
+      ip = { mode:'dragMulti', startX:e.clientX, startY:e.clientY, multiNodes, dropTarget:null };
+    });
+
+    el.querySelectorAll('.color-dot').forEach(dot => {
+      dot.addEventListener('click', e => {
+        e.stopPropagation();
+        colorPicker.style.display = 'flex'; colorPicker.style.left = e.clientX+'px'; colorPicker.style.top = (e.clientY+15)+'px';
+        cpCallback = col => { const ni = parseInt(dot.dataset.nodeidx); const item = ni===0?n:n.subNodes[ni-1]; item.color = col; commitState(); renderBoard(); };
+      });
+    });
+
+    el.querySelectorAll('.n-title,.n-desc').forEach(txtEl => {
+      txtEl.addEventListener('mousedown', e=>e.stopPropagation());
+      txtEl.addEventListener('blur', () => {
+        const ni = parseInt(txtEl.dataset.nodeidx); const item = ni===0?n:n.subNodes[ni-1];
+        if(txtEl.classList.contains('n-title')) item.title=txtEl.textContent; else item.content=txtEl.textContent;
+        commitState(); renderEdges();
+      });
+    });
+
+    el.querySelectorAll('.comment-block').forEach(cb => {
+      cb.addEventListener('mousedown', e=>e.stopPropagation());
+      cb.addEventListener('blur', () => {
+        const ni=parseInt(cb.dataset.nodeidx); const ci=parseInt(cb.dataset.cidx);
+        const item=ni===0?n:n.subNodes[ni-1];
+        if(cb.textContent.trim()===''){item.comments.splice(ci,1);renderBoard();commitState();}
+        else{item.comments[ci]=cb.textContent;commitState();}
+      });
+    });
+
+    el.querySelectorAll('.btn-add-comment').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const ni=parseInt(btn.dataset.nodeidx); const item=ni===0?n:n.subNodes[ni-1];
+        if(!item.comments)item.comments=[];
+        item.comments.push(''); commitState(); renderBoard();
+        const blocks=[...canvas.querySelector(`.node[data-id="${n.id}"]`).querySelectorAll(`.comment-block[data-nodeidx="${ni}"]`)];
+        setTimeout(()=>blocks[blocks.length-1].focus(),50);
+      });
+    });
+
+    const uEdges=el.querySelector('.btn-unlink-edges');
+    if(uEdges) uEdges.addEventListener('click',()=>{ board.edges=board.edges.filter(x=>x.from!==n.id&&x.to!==n.id); commitState(); renderBoard(); });
+    const dParent=el.querySelector('.btn-del-parent');
+    if(dParent) dParent.addEventListener('click',()=>{ board.nodes=board.nodes.filter(x=>x.id!==n.id); board.edges=board.edges.filter(x=>x.from!==n.id&&x.to!==n.id); commitState(); renderBoard(); });
+    el.querySelectorAll('.btn-unlink-child').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const ni=parseInt(btn.dataset.idx)-1;
+        const extracted=n.subNodes.splice(ni,1)[0];
+        extracted.x=n.x+320; extracted.y=n.y+(ni*40); extracted.subNodes=extracted.subNodes||[]; extracted.comments=extracted.comments||[];
+        board.nodes.push(extracted); commitState(); renderBoard();
+      });
+    });
+    el.querySelectorAll('.btn-del-child').forEach(btn=>{
+      btn.addEventListener('click',()=>{ const ni=parseInt(btn.dataset.idx)-1; n.subNodes.splice(ni,1); commitState(); renderBoard(); });
+    });
+
+    el.querySelectorAll('.port').forEach(p=>{
+      p.addEventListener('mousedown',e=>{
+        e.stopPropagation(); e.preventDefault();
+        if(p.dataset.port==='out'){ip.mode='drawEdge';ip.activeId=n.id;}
+      });
+      p.addEventListener('mouseup',e=>{
+        e.stopPropagation();
+        if(ip.mode==='drawEdge'&&p.dataset.port==='in'&&ip.activeId!==n.id){
+          if(!board.edges.some(ed=>ed.from===ip.activeId&&ed.to===n.id)){board.edges.push({from:ip.activeId,to:n.id});commitState();}
+        }
+        ip.mode=null; renderEdges();
+      });
+    });
+
+    canvas.appendChild(el);
+  }
+
+  function renderEdges(eX, eY) {
+    svg.innerHTML='';
+    let mx=3000,my=3000;
+    board.nodes.forEach(n=>{mx=Math.max(mx,n.x+800);my=Math.max(my,n.y+800);});
+    svg.setAttribute('width',mx); svg.setAttribute('height',my);
+
+    board.edges.forEach(ed=>{
+      const a=getRect(ed.from),b=getRect(ed.to); if(!a||!b) return;
+      const nFrom=board.nodes.find(x=>x.id===ed.from);
+      const x1=a.x+a.w,y1=a.y+a.h/2,x2=b.x,y2=b.y+b.h/2;
+      const dx=Math.max(80,Math.abs(x2-x1)*0.6);
+      const d=`M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+      const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke',nFrom?nFrom.color:'#6366f1');
+      p.setAttribute('stroke-width','3');p.setAttribute('stroke-linecap','round');
+      p.style.pointerEvents='stroke';p.style.cursor='pointer';
+      p.addEventListener('click',e=>{e.stopPropagation();if(confirm('Удалить связь?')){board.edges=board.edges.filter(x=>!(x.from===ed.from&&x.to===ed.to));commitState();renderEdges();}});
+      svg.appendChild(p);
+    });
+
+    if(ip.mode==='drawEdge'&&eX&&eY){
+      const a=getRect(ip.activeId); if(a){
+        const vr=viewport.getBoundingClientRect();
+        const cx=(eX-vr.left-view.x)/view.zoom,cy=(eY-vr.top-view.y)/view.zoom;
+        const x1=a.x+a.w,y1=a.y+a.h/2,dx=Math.max(80,Math.abs(cx-x1)*0.6);
+        const d=`M${x1},${y1} C${x1+dx},${y1} ${cx-dx},${cy} ${cx},${cy}`;
+        const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+        p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke','#fff');p.setAttribute('stroke-width','2');p.setAttribute('stroke-dasharray','8,6');
+        svg.appendChild(p);
+      }
+    }
+  }
+
+  function getRect(id){
+    let el=canvas.querySelector(`.node[data-id="${id}"]`);
+    if(!el) {
+      el = canvas.querySelector(`.text-node[data-tid="${id}"]`);
+      if(!el) return null;
+      const t = board.texts.find(x=>x.id===id);
+      return {x:t.x, y:t.y, w:el.offsetWidth, h:el.offsetHeight};
+    }
+    const n=board.nodes.find(x=>x.id===id); return {x:n.x,y:n.y,w:el.offsetWidth,h:el.offsetHeight};
+  }
+  function applyView(){ canvas.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.zoom})`; document.getElementById('z-val').textContent=Math.round(view.zoom*100)+'%'; }
+
+  // ── GLOBAL EVENTS ───────────────────────────────────────────────────────────
+  function setupEvents(){
+    viewport.addEventListener('mousedown',e=>{
+      if(e.target.closest('.node') || e.target.closest('.text-node')) return;
+
+      if(e.shiftKey) {
+        if(!e.ctrlKey && !e.metaKey) document.querySelectorAll('.text-node.selected, .node.selected').forEach(x=>x.classList.remove('selected'));
+        const vr = viewport.getBoundingClientRect();
+        ip = { mode: 'selectBox', startX: e.clientX, startY: e.clientY, vLeft: vr.left, vTop: vr.top };
+        selBox.style.display = 'block';
+        selBox.style.left = (e.clientX - vr.left) + 'px';
+        selBox.style.top = (e.clientY - vr.top) + 'px';
+        selBox.style.width = '0px'; selBox.style.height = '0px';
+      } else {
+        document.querySelectorAll('.node.selected,.text-node.selected').forEach(x=>x.classList.remove('selected'));
+        ip={mode:'pan',startX:e.clientX,startY:e.clientY,origX:view.x,origY:view.y};
+        viewport.classList.add('grabbing'); colorPicker.style.display='none';
+      }
+    });
+
+    window.addEventListener('mousemove',e=>{
+      if(!ip.mode) return;
+      const vr=viewport.getBoundingClientRect();
+      if(ip.mode==='pan'){
+        view.x=ip.origX+(e.clientX-ip.startX); view.y=ip.origY+(e.clientY-ip.startY); applyView();
+      } else if(ip.mode==='selectBox'){
+        const x = Math.min(e.clientX, ip.startX);
+        const y = Math.min(e.clientY, ip.startY);
+        const w = Math.abs(e.clientX - ip.startX);
+        const h = Math.abs(e.clientY - ip.startY);
+        selBox.style.left = (x - ip.vLeft) + 'px'; selBox.style.top = (y - ip.vTop) + 'px';
+        selBox.style.width = w + 'px'; selBox.style.height = h + 'px';
+
+        canvas.querySelectorAll('.node, .text-node').forEach(el => {
+          const rect = el.getBoundingClientRect();
+          if(!(rect.right < x || rect.left > x+w || rect.bottom < y || rect.top > y+h)) {
+             el.classList.add('selected');
+          } else {
+             el.classList.remove('selected');
+          }
+        });
+      } else if(ip.mode==='dragMulti'){
+        const dx = (e.clientX - ip.startX) / view.zoom;
+        const dy = (e.clientY - ip.startY) / view.zoom;
+        let mainNode = null;
+
+        ip.multiNodes.forEach(m => {
+          m.item.x = m.origX + dx; m.item.y = m.origY + dy;
+          m.dom.style.left = m.item.x + 'px'; m.dom.style.top = m.item.y + 'px';
+          if (m.isNode && !mainNode) mainNode = m;
+        });
+        renderEdges();
+
+        if (ip.multiNodes.length === 1 && mainNode) {
+          const n = mainNode.item;
+          const hasEdges=board.edges.some(ed=>ed.from===n.id||ed.to===n.id);
+          document.querySelectorAll('.node.drop-target').forEach(x=>x.classList.remove('drop-target'));
+          ip.dropTarget=null;
+          if(!hasEdges){
+            const cx=(e.clientX-vr.left-view.x)/view.zoom,cy=(e.clientY-vr.top-view.y)/view.zoom;
+            for(const trg of board.nodes){
+              if(trg.id===n.id) continue;
+              const dom=canvas.querySelector(`.node[data-id="${trg.id}"]`); if(!dom) continue;
+              if(cx>=trg.x&&cx<=trg.x+dom.offsetWidth&&cy>=trg.y&&cy<=trg.y+dom.offsetHeight){
+                ip.dropTarget=trg.id; dom.classList.add('drop-target'); break;
+              }
+            }
+          }
+        }
+      } else if(ip.mode==='resizeText'){
+        const t=board.texts.find(x=>x.id===ip.activeId); if(!t) return;
+        const dw=(e.clientX-ip.startX)/view.zoom;
+        const dh=(e.clientY-ip.startY)/view.zoom;
+        t.w=Math.max(60,ip.origW+dw); t.h=Math.max(ip.origFS*1.4,ip.origH+dh);
+        const el=canvas.querySelector(`.text-node[data-tid="${t.id}"]`);
+        if(el){ el.style.width=t.w+'px'; el.style.height=t.h+'px'; }
+      } else if(ip.mode==='spawnCard'){
+        ghost.style.left=(e.clientX-ghost.offsetWidth/2)+'px'; ghost.style.top=(e.clientY-10)+'px';
+      } else if(ip.mode==='drawEdge'){
+        renderEdges(e.clientX,e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup',e=>{
+      const vr=viewport.getBoundingClientRect();
+      if(ip.mode==='pan'){ viewport.classList.remove('grabbing'); }
+      else if(ip.mode==='selectBox') { selBox.style.display = 'none'; }
+      else if(ip.mode==='resizeText'){ commitState(); }
+      else if(ip.mode==='dragMulti'){
+        if(ip.dropTarget && ip.multiNodes.length === 1 && ip.multiNodes[0].isNode){
+          const n = ip.multiNodes[0].item;
+          const parent=board.nodes.find(x=>x.id===ip.dropTarget);
+          const child=board.nodes.find(x=>x.id===n.id);
+          if(!parent.subNodes) parent.subNodes=[];
+          parent.subNodes.push({id:child.id,title:child.title,content:child.content,color:child.color,comments:child.comments||[]});
+          if(child.subNodes?.length) parent.subNodes.push(...child.subNodes);
+          board.nodes=board.nodes.filter(x=>x.id!==n.id);
+          renderBoard();
+        }
+        commitState();
+      } else if(ip.mode==='spawnCard'){
+        ghost.style.display='none';
+        if(e.clientX>vr.left&&e.clientX<vr.right&&e.clientY>vr.top&&e.clientY<vr.bottom){
+          const cvX=(e.clientX-vr.left-view.x)/view.zoom-100;
+          const cvY=(e.clientY-vr.top-view.y)/view.zoom-20;
+          board.nodes.push({id:guid(),x:cvX,y:cvY,title:ip.sourceCard.title,content:ip.sourceCard.content,color:ip.sourceCard.color,comments:[],subNodes:[]});
+          commitState(); renderBoard();
+        }
+      } else if(ip.mode==='drawEdge'){ renderEdges(); }
+      ip.mode=null;
+    });
+
+    viewport.addEventListener('wheel',e=>{
+      e.preventDefault(); const dz=-e.deltaY*0.001; const nz=Math.max(0.2,Math.min(2.5,view.zoom*(1+dz)));
+      const vr=viewport.getBoundingClientRect(); const mx=e.clientX-vr.left,my=e.clientY-vr.top;
+      view.x=mx-(mx-view.x)*(nz/view.zoom); view.y=my-(my-view.y)*(nz/view.zoom); view.zoom=nz; applyView();
+    },{passive:false});
+
+    colorPicker.querySelectorAll('.cp-swatch').forEach(sw=>{
+      sw.addEventListener('click',e=>{
+        if(cpCallback){cpCallback(e.target.dataset.c);cpCallback=null;}
+        colorPicker.style.display='none';
+      });
+    });
+    document.getElementById('cp-custom').addEventListener('input',e=>{
+      if(cpCallback){cpCallback(e.target.value);cpCallback=null;} colorPicker.style.display='none';
+    });
+    document.addEventListener('mousedown',e=>{ if(!colorPicker.contains(e.target)) colorPicker.style.display='none'; });
+
+    window.addEventListener('keydown',e=>{
+      if((e.ctrlKey||e.metaKey)&&e.key==='z'){if(document.activeElement.isContentEditable)return;e.preventDefault();undo();}
+    });
+  }
+
+  function addCustomNode(){
+    const pt={x:-view.x/view.zoom+200,y:-view.y/view.zoom+100};
+    const layers = [
+      { key: 'l1', title: 'ГЕЙМПЛЕЙ', color: '#3b82f6' },
+      { key: 'l2', title: 'НАРРАТИВ', color: '#eab308' },
+      { key: 'l3', title: 'ИСТОРИЯ',  color: '#a855f7' },
+      { key: 'l4', title: 'ЭМОЦИЯ',   color: '#f43f5e' }
+    ];
+    const id = guid();
+    board.nodes.push({
+      id, x: pt.x, y: pt.y,
+      title: 'НОВАЯ СЦЕНА', content: '', color: '#6366f1', comments: [],
+      subNodes: layers.map(L => ({ id: id+'_'+L.key, title: L.title, content: '', color: L.color, comments: [], subNodes: [] }))
+    });
+    commitState(); renderBoard();
+  }
+
+  function addTextNode(){
+    if(!board.texts) board.texts=[];
+    const pt={x:-view.x/view.zoom+150,y:-view.y/view.zoom+80};
+    const t={id:guid(),x:pt.x,y:pt.y,w:300,h:60,fontSize:36,color:'#f3f4f6',content:'Заголовок'};
+    board.texts.push(t); commitState(); renderBoard();
+    setTimeout(()=>{
+      const el=canvas.querySelector(`.text-node[data-tid="${t.id}"] .text-node-content`);
+      if(el){el.focus();const r=document.createRange();const s=window.getSelection();r.selectNodeContents(el);s.removeAllRanges();s.addRange(r);}
+    },60);
+  }
+
+  init();
+  return { addCustomNode, addTextNode, resetView:()=>{view={x:40,y:40,zoom:0.85};applyView();}, undo, clearBoard, resetDeck, resetBoard, exportBoard, importBoard, addCategory };
+})();
+</script>
+</body>
+</html>
